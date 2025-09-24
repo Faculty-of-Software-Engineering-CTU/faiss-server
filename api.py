@@ -2,6 +2,7 @@ import logging
 from pydantic import BaseModel
 from typing import List, Dict, Any
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from vector_store import VectorStore
 
@@ -12,6 +13,14 @@ app = FastAPI(
     title="RAG FAISS Server API",
     version="1.0.0",
     description="FAISS Vector Database API for Document Retrieval"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 vector_store = VectorStore()
