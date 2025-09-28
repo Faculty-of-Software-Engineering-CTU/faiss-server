@@ -25,15 +25,18 @@ app.add_middleware(
 
 vector_store = VectorStore()
 
+
 class SearchRequest(BaseModel):
     query: str
     top_k: int = 5
+
 
 class SearchResult(BaseModel):
     text: str
     score: float
     metadata: Dict[str, Any] = {}
     rank: int
+
 
 class SearchResponse(BaseModel):
     query: str
@@ -62,8 +65,3 @@ async def search(request: SearchRequest):
     except Exception as e:
         logger.error(f"Search error: {e}")
         raise HTTPException(status_code=500, detail="Search operation failed")
-
-    
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app="api:app", host="localhost", port=8000)
