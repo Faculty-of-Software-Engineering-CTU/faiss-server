@@ -1,8 +1,10 @@
 FROM python:3.13
 
-COPY . /app
+WORKDIR /app
 
-RUN pip install
+COPY . .
+
+RUN pip install -r requirements.txt
 
 EXPOSE 8000
 
