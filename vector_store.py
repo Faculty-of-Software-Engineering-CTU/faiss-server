@@ -2,7 +2,6 @@ import os
 import shutil
 from pathlib import Path
 from typing import List, Dict, Any
-from uu import Error
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 
@@ -29,7 +28,6 @@ class VectorStore:
         else:
             print("▶ Initialized: no existing index, ready to create new one")
 
-
     def load_from_gdrive(self, temp_path: str, folder_id: str) -> List[Document]:
         os.makedirs(temp_path, exist_ok=True)
         try:
@@ -55,10 +53,9 @@ class VectorStore:
                 all_chunks.extend(chunks)
             return all_chunks
         except Exception as e:
-            raise Error(f"Error loading from Google Drive: {e}")
+            raise RuntimeError(f"Error loading from Google Drive: {e}")
         finally:
             shutil.rmtree(temp_path)
-
 
     def ocr_pdf(self, path: str) -> str:
         try:
@@ -73,8 +70,7 @@ class VectorStore:
             text = converter.convert(path).document
             return text.export_to_markdown()
         except Exception as e:
-            raise Error(f"Error during OCR processing: {e}")
-
+            raise RuntimeError(f"Error during OCR processing: {e}")
 
     def chunking(self, text: str, source_path: str) -> List[Document]:
         try:
@@ -92,13 +88,13 @@ class VectorStore:
                     "source": str(source_path),
                     "section": header_path,
                 }
-                split_docs = text_splitter.split_documents([Document(page_content=section.page_content, metadata=base_meta)])
+                split_docs = text_splitter.split_documents(
+                    [Document(page_content=section.page_content, metadata=base_meta)])
                 chunks.extend(split_docs)
             return chunks
         except Exception as e:
-            raise Error(f"Error during text chunking: {e}")
+            raise RuntimeError(f"Error during text chunking: {e}")
 
-    
     def create_vector_store(self, documents: List[Document]):
         if not documents:
             print("No documents provided.")
@@ -111,11 +107,9 @@ class VectorStore:
         except Exception as e:
             print(f"Error creating vector store: {e}")
             return self
-    
 
     def load_index(self) -> bool:
         return os.path.exists(self.index_path)
-    
 
     def load_index_with_embeddings(self) -> bool:
         if not self.load_index():
@@ -132,8 +126,7 @@ class VectorStore:
         except Exception as e:
             print(f"Failed to load index with embeddings: {e}")
             return False
-        
-    
+
     def save_index(self) -> bool:
         if self.vectorstore is None:
             print("Nothing to save")
@@ -143,8 +136,7 @@ class VectorStore:
             print(f"▶ Saved vector store to {self.index_path}")
             return True
         except Exception as e:
-            raise Error(f"Error saving index: {e}")
-
+            raise RuntimeError(f"Error saving index: {e}")
 
     def delete_index(self) -> bool:
         if os.path.exists(self.index_path):
@@ -154,18 +146,19 @@ class VectorStore:
                 print(f"▶ Deleted index at {self.index_path}")
                 return True
             except Exception as e:
-                raise Error(f"Error deleting index: {e}")
+                raise RuntimeError(f"Error deleting index: {e}")
         else:
             print("No index to delete")
             return False
 
-
-    def get_vector_results(self, query: str, top_k: int = 5, use_mmr: bool = True, lambda_mult: float = 0.5) -> List[Dict[str, Any]]:
+    def get_vector_results(self, query: str, top_k: int = 5, use_mmr: bool = True, lambda_mult: float = 0.5) -> List[
+        Dict[str, Any]]:
         if self.vectorstore is None:
             self.load_index_with_embeddings()
 
         try:
-            docs = self.vectorstore.max_marginal_relevance_search(query, k=top_k, fetch_k=max(top_k * 4, 10), lambda_mult=lambda_mult)
+            docs = self.vectorstore.max_marginal_relevance_search(query, k=top_k, fetch_k=max(top_k * 4, 10),
+                                                                  lambda_mult=lambda_mult)
             rescored = self.vectorstore.similarity_search_with_score(query, k=max(top_k * 4, 10))
             score_map = {d.page_content: float(s) for d, s in rescored}
             return [
@@ -178,4 +171,4 @@ class VectorStore:
                 for i, d in enumerate(docs[:top_k])
             ]
         except Exception as e:
-            raise Error(f"Error during vector search: {e}")
+            raise RuntimeError(f"Error during vector search: {e}")
