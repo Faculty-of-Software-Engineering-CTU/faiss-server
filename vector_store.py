@@ -2,7 +2,6 @@ import os
 import shutil
 from pathlib import Path
 from typing import List, Dict, Any
-from uu import Error
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 
@@ -55,7 +54,7 @@ class VectorStore:
                 all_chunks.extend(chunks)
             return all_chunks
         except Exception as e:
-            raise Error(f"Error loading from Google Drive: {e}")
+            raise Exception(f"Error loading from Google Drive: {e}")
         finally:
             shutil.rmtree(temp_path)
 
@@ -73,7 +72,7 @@ class VectorStore:
             text = converter.convert(path).document
             return text.export_to_markdown()
         except Exception as e:
-            raise Error(f"Error during OCR processing: {e}")
+            raise Exception(f"Error during OCR processing: {e}")
 
 
     def chunking(self, text: str, source_path: str) -> List[Document]:
@@ -96,7 +95,7 @@ class VectorStore:
                 chunks.extend(split_docs)
             return chunks
         except Exception as e:
-            raise Error(f"Error during text chunking: {e}")
+            raise Exception(f"Error during text chunking: {e}")
 
     
     def create_vector_store(self, documents: List[Document]):
@@ -143,7 +142,7 @@ class VectorStore:
             print(f"▶ Saved vector store to {self.index_path}")
             return True
         except Exception as e:
-            raise Error(f"Error saving index: {e}")
+            raise Exception(f"Error saving index: {e}")
 
 
     def delete_index(self) -> bool:
@@ -154,7 +153,7 @@ class VectorStore:
                 print(f"▶ Deleted index at {self.index_path}")
                 return True
             except Exception as e:
-                raise Error(f"Error deleting index: {e}")
+                raise Exception(f"Error deleting index: {e}")
         else:
             print("No index to delete")
             return False
@@ -178,4 +177,4 @@ class VectorStore:
                 for i, d in enumerate(docs[:top_k])
             ]
         except Exception as e:
-            raise Error(f"Error during vector search: {e}")
+            raise Exception(f"Error during vector search: {e}")
