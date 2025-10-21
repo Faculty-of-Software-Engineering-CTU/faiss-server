@@ -5,7 +5,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from vector_store import VectorStore
-from web_search import searching
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -55,12 +54,6 @@ async def search(request: SearchRequest):
         results = vector_store.get_vector_results(request.query, top_k=request.top_k)
         if not results:
             raise HTTPException(status_code=404, detail="No results found")
-
-        if any(res["score"] > 0.3 for res in results):
-            results = searching(request.query)
-            if not results:
-                raise HTTPException(status_code=404, detail="No web results found")
-
         return SearchResponse(
             query=request.query,
             results=[SearchResult(**res) for res in results],

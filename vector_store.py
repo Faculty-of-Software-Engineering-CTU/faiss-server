@@ -23,26 +23,31 @@ class VectorStore:
         self.embedding_model = Embedding()
 
         os.makedirs(storage_dir, exist_ok=True)
-        if self.load_index():
+        if self.load_index_with_embeddings():
             print(f"▶ Initialized: existing index found at {self.index_path}")
         else:
             print("▶ Initialized: no existing index, ready to create new one")
 
 
-    def load_from_gdrive(self, temp_path: str, folder_id: str) -> List[Document]:
+    def load_from_gdrive(self, temp_path: str, src_folder_id: str, dest_folder_id: str) -> List[Document]:
         os.makedirs(temp_path, exist_ok=True)
         try:
             gauth = GoogleAuth()
-            gauth.LocalWebserverAuth()
+            if not os.path.exists("./credentials.json"):
+                gauth.LocalWebserverAuth()
+                gauth.SaveCredentialsFile("./credentials.json")
+            else:
+                gauth.LoadCredentialsFile("./credentials.json")
             drive = GoogleDrive(gauth)
-            file_list = drive.ListFile({'q': f"'{folder_id}' in parents and trashed=false"}).GetList()
+
+            # Load from source folder
+            file_list = drive.ListFile({'q': f"'{src_folder_id}' in parents and trashed=false"}).GetList()
             all_chunks = []
 
             for file in file_list:
                 local_path = os.path.join(temp_path, file['title'])
                 file.GetContentFile(local_path)
                 print("Now exists:", Path(local_path).exists(), "at", local_path)
-                input("Press Enter to continue...")  # pause so you can check manually
 
                 if file['mimeType'] == "application/pdf" or local_path.lower().endswith(".pdf"):
                     print(f"▶ Processing PDF with OCR: {file['title']}")
@@ -50,13 +55,19 @@ class VectorStore:
                 else:
                     print(f"▶ Processing text file: {file['title']}")
                     text = Path(local_path).read_text(encoding='utf-8', errors='ignore')
+                    
                 chunks = self.chunking(text, local_path)
                 all_chunks.extend(chunks)
+
+                # Move files to destination folder
+                file['parents'] = [{'id': dest_folder_id}]
+                file.Upload(param={'supportsAllDrives': True})
+
             return all_chunks
         except Exception as e:
             raise Exception(f"Error loading from Google Drive: {e}")
         finally:
-            shutil.rmtree(temp_path)
+            shutil.rmtree(temp_path, ignore_errors=True)
 
 
     def ocr_pdf(self, path: str) -> str:
@@ -143,6 +154,20 @@ class VectorStore:
             return True
         except Exception as e:
             raise Exception(f"Error saving index: {e}")
+
+
+    def add_documents(self, documents: List[Document]) -> bool:
+        if not documents:
+            print("No documents to add")
+            return self
+        try:
+            self.vectorstore.add_documents(documents, embedding=self.embedding_model)
+            self.save_index()
+            print(f"▶ Added {len(documents)} documents to vector store")
+            return self
+        except Exception as e:
+            print(f"Error adding documents: {e}")
+            return self
 
 
     def delete_index(self) -> bool:
