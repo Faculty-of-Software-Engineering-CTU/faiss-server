@@ -29,7 +29,7 @@ class VectorStore:
             print("▶ Initialized: no existing index, ready to create new one")
 
 
-    def load_from_gdrive(self, temp_path: str, src_folder_id: str, dest_folder_id: str) -> List[Document]:
+    def load_from_gdrive(self, temp_path: str, new_folder_id: str, processed_folder_id: str) -> List[Document]:
         os.makedirs(temp_path, exist_ok=True)
         try:
             gauth = GoogleAuth()
@@ -39,15 +39,14 @@ class VectorStore:
             else:
                 gauth.LoadCredentialsFile("./credentials.json")
             drive = GoogleDrive(gauth)
-
-            # Load from source folder
-            file_list = drive.ListFile({'q': f"'{src_folder_id}' in parents and trashed=false"}).GetList()
+            file_list = drive.ListFile({'q': f"'{new_folder_id}' in parents and trashed=false"}).GetList()
+            print(f"Found {len(file_list)} files in 'new' folder.")
             all_chunks = []
 
             for file in file_list:
                 local_path = os.path.join(temp_path, file['title'])
                 file.GetContentFile(local_path)
-                print("Now exists:", Path(local_path).exists(), "at", local_path)
+                print(f"Downloaded: {file['title']}")
 
                 if file['mimeType'] == "application/pdf" or local_path.lower().endswith(".pdf"):
                     print(f"▶ Processing PDF with OCR: {file['title']}")
@@ -55,13 +54,20 @@ class VectorStore:
                 else:
                     print(f"▶ Processing text file: {file['title']}")
                     text = Path(local_path).read_text(encoding='utf-8', errors='ignore')
-                    
+
+                # Chunking data
                 chunks = self.chunking(text, local_path)
                 all_chunks.extend(chunks)
 
-                # Move files to destination folder
-                file['parents'] = [{'id': dest_folder_id}]
-                file.Upload(param={'supportsAllDrives': True})
+                # Move processed file to 'processed' folder
+                processed_file = drive.CreateFile({
+                    'title': file['title'],
+                    'parents': [{'id': processed_folder_id}]
+                })
+                processed_file.SetContentFile(local_path)
+                processed_file.Upload()
+                print(f"Moved file to 'processed' folder: {file['title']}")
+                file.Trash()
 
             return all_chunks
         except Exception as e:
@@ -90,7 +96,6 @@ class VectorStore:
                 headers_to_split_on=[("#", "h1"), ("##", "h2"), ("###", "h3"), ("####", "h4")]
             )
             sections = header_splitter.split_text(text)
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
 
             chunks = []
             for section in sections:
@@ -100,8 +105,7 @@ class VectorStore:
                     "source": str(source_path),
                     "section": header_path,
                 }
-                split_docs = text_splitter.split_documents(
-                    [Document(page_content=section.page_content, metadata=base_meta)])
+                split_docs = [Document(page_content=section.page_content, metadata=base_meta)]
                 chunks.extend(split_docs)
             return chunks
         except Exception as e:
@@ -119,6 +123,20 @@ class VectorStore:
         except Exception as e:
             print(f"Error creating vector store: {e}")
             return self
+    
+    
+    def update_vector_store(self, documents: List[Document]):
+        if self.vectorstore is None:
+            self.load_index_with_embeddings()
+        try:
+            self.vectorstore.add_documents(documents)
+            self.save_index()
+            print(f"▶ Added {len(documents)} documents to vector store")
+            return self
+        except Exception as e:
+            print(f"Error adding documents: {e}")
+            return self
+        
 
     def load_index(self) -> bool:
         return os.path.exists(self.index_path)
