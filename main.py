@@ -31,13 +31,12 @@ def main():
                 print("Documents added from data/split (chunked).")
             elif no_split_dir.exists() and no_split_dir.is_dir():
                 print("Found 'no_split' directory → loading without chunking.")
-                documents = []
                 for f in sorted(no_split_dir.iterdir()):
                     if f.is_file():
                         with f.open('r', encoding='utf-8') as fh:
                             content = fh.read()
-                        documents.append(Document(page_content=content, metadata={"source": str(f)}))
-                vector_store.update_vector_store(documents)
+                            documents = Document(page_content=content, metadata={"source": str(f)})
+                            vector_store.update_vector_store([documents])
                 print("Documents added from data/no_split (un-chunked).")
         else:
             print("Invalid choice. Please try again.")
