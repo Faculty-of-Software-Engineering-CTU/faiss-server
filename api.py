@@ -46,8 +46,8 @@ class SearchResponse(BaseModel):
 
 @app.get("/health")
 async def health():
-    if vector_store.load_index():
-        return {"status": "ok"}
+    if vector_store.load_index_with_embeddings():
+        return {"length": len(vector_store), "status": "ok"}
     raise HTTPException(status_code=500, detail="Vector store not available")
 
 
