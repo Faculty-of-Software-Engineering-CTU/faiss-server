@@ -203,3 +203,6 @@ class VectorStore:
             ]
         except Exception as e:
             raise Exception(f"Error during vector search: {e}")
+        
+    def __len__(self):
+        return len(self.vectorstore.docstore._dict) if self.vectorstore else 0
